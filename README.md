@@ -75,24 +75,63 @@ Netlify bundles natively — no build step of their own.
 
 ## Configure
 
-Copy `.env.example` to `.env` and fill it in. Both variables are read only
-inside `netlify/functions/`, never bundled into the client. Set the same pair in
-the Netlify site's environment variables for deploys.
+Two variables, obtained in completely different ways:
 
+| Variable | Where it comes from |
+|---|---|
+| `SHEET_API_TOKEN` | **You invent it.** Any random string. It is a shared password between this app and your Apps Script — nothing issues it. |
+| `SHEET_API_URL` | **Google gives it to you** when you deploy the Apps Script as a Web App. Ends in `/exec`. |
+
+Generate a token:
+
+```sh
+openssl rand -hex 32
+```
+
+Both are read only inside `netlify/functions/`, never bundled into the client.
 Without them the app still reads forms and builds links — only presets and
 history fail, and they say so in their own banner rather than blocking anything.
 
-### The Sheet half
+### 1. The Sheet half
 
-1. Create a spreadsheet. **Extensions › Apps Script**, paste
-   [`apps-script/Code.gs`](apps-script/Code.gs).
-2. **Project Settings › Script properties**: add `TOKEN`, same value as
-   `SHEET_API_TOKEN`.
-3. **Deploy › New deployment › Web app**, execute as *me*, access *Anyone*.
-   Put the `/exec` URL in `SHEET_API_URL`. Opening that URL in a browser should
-   answer `{"ok":true,…}`.
+1. Create a spreadsheet (`sheets.new`). **Extensions › Apps Script**. Delete
+   the stub `myFunction`, paste all of [`apps-script/Code.gs`](apps-script/Code.gs), save.
+2. **Project Settings** (gear, left sidebar) **› Script properties › Add script
+   property**: name `TOKEN`, value = the string you generated. This must match
+   `SHEET_API_TOKEN` exactly or every call answers `bad token`.
+3. **Deploy › New deployment**, pick type **Web app** (gear icon next to
+   "Select type"). Execute as **Me**, who has access **Anyone**. Deploy.
+4. Google will ask you to authorize, then warn **"Google hasn't verified this
+   app"**. That is expected — the unverified app is your own script. Click
+   **Advanced › Go to (project name) (unsafe)** to continue. Stopping here is
+   the single most common place this setup stalls.
+5. Copy the **Web app URL** (ends in `/exec`) → that is `SHEET_API_URL`.
+   Open it in a browser: it should answer `{"ok":true,"service":"prefill sheet api"}`.
 
 The `presets` and `history` tabs are created on first write — no manual setup.
+
+**After any edit to `Code.gs`**, the live deployment does *not* update: go
+**Deploy › Manage deployments › (pencil) › Version: New version › Deploy**. The
+`/exec` URL stays the same. Forgetting this looks exactly like your edit having
+no effect.
+
+### 2. Local
+
+```sh
+cp .env.example .env
+```
+
+Fill in both values, then **restart `npm run dev`** — they are read when the
+Vite config is evaluated, so a running server will not pick them up.
+
+`.env` is gitignored.
+
+### 3. Netlify
+
+**Site configuration › Environment variables › Add a variable**, add the same
+two. Then **trigger a redeploy** (Deploys › Trigger deploy › Deploy site) —
+Netlify does not rebuild just because a variable changed, so the site keeps
+serving the old build until you do.
 
 ## Known limits
 
