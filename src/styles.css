@@ -70,3 +70,8 @@ dl { margin: .6rem 0; }
 dl div { display: flex; gap: .5rem; padding: .2rem 0; border-top: 1px solid var(--line); }
 dt { flex: 0 0 45%; color: var(--soft); }
 dd { margin: 0; }
+
+.saved { display: flex; align-items: center; gap: .7rem; }
+.saved .open { flex: 0 0 auto; font-weight: 600; }
+.saved .meta { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved .x { border: 0; background: none; color: var(--soft); padding: .2rem .4rem; }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Answer, Answers, Field, FormSchema, HistoryRow, Preset } from './lib/api'
 import * as api from './lib/api'
-import { OTHER, URL_WARN_AT, blankAnswers, buildPrefillUrl, filledValues, prefillable } from './lib/prefill'
+import { OTHER, URL_WARN_AT, blankAnswers, buildPrefillUrl, filledValues, prefillable, viewformUrl } from './lib/prefill'
 
 const TYPE_LABEL: Record<Field['type'], string> = {
   short: 'ข้อความสั้น',
@@ -96,6 +96,16 @@ function FieldEditor({ field, answer, onChange }: {
   return <input value={value as string} onChange={(e) => set({ value: e.target.value })} />
 }
 
+/** Keep only the fields this form actually has, so a preset from another form degrades instead of breaking. */
+function answersFor(schema: FormSchema, p: Preset): Answers {
+  const base = blankAnswers(schema)
+  for (const f of schema.fields) {
+    const saved = p.answers[f.entryId]
+    if (saved) base[f.entryId] = saved
+  }
+  return base
+}
+
 export default function App() {
   const [tab, setTab] = useState<'form' | 'history'>('form')
   const [formUrl, setFormUrl] = useState('')
@@ -133,17 +143,27 @@ export default function App() {
       setLastUrl('')
     })
 
-  /** Keep only the fields this form actually has, so a preset from another form degrades instead of breaking. */
   const applyPreset = (p: Preset) => {
     if (!schema) return
-    const base = blankAnswers(schema)
-    for (const f of schema.fields) {
-      const saved = p.answers[f.entryId]
-      if (saved) base[f.entryId] = saved
-    }
-    setAnswers(base)
+    setAnswers(answersFor(schema, p))
     setPresetName(p.name)
   }
+
+  /**
+   * Reopen a saved preset from cold — the whole point of saving one. A preset
+   * carries its `formId`, and a form's public URL is derivable from that, so
+   * this needs no stored link and no backend change: rediscover the form, then
+   * apply. Uses the freshly fetched schema rather than waiting for state.
+   */
+  const openPreset = (p: Preset) =>
+    run(async () => {
+      const s = await api.discoverForm(viewformUrl(p.formId))
+      setSchema(s)
+      setAnswers(answersFor(s, p))
+      setPresetName(p.name)
+      setFormUrl(viewformUrl(p.formId))
+      setLastUrl('')
+    })
 
   const save = () =>
     run(async () => {
@@ -230,6 +250,21 @@ export default function App() {
             />
             <button onClick={discover} disabled={busy || !formUrl}>อ่านฟอร์ม</button>
           </div>
+
+          {!schema && presets.length > 0 && (
+            <>
+              <h2>ที่บันทึกไว้</h2>
+              {presets.map((p) => (
+                <div key={p.name} className="card saved">
+                  <button className="open" onClick={() => openPreset(p)} disabled={busy}>
+                    {p.name}
+                  </button>
+                  <span className="meta">{p.formTitle || p.formId}</span>
+                  <button className="x" title="ลบ" onClick={() => remove(p.name)} disabled={busy}>×</button>
+                </div>
+              ))}
+            </>
+          )}
 
           {schema && (
             <>

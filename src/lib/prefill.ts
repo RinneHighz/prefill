@@ -14,6 +14,10 @@ const asList = (v: string | string[]) => (Array.isArray(v) ? v : [v])
 const isBlank = (v: string | string[]) =>
   Array.isArray(v) ? v.length === 0 : v.trim() === ''
 
+/** The public URL of a form, rebuilt from its id — the only thing a saved preset needs to find its form again. */
+export const viewformUrl = (formId: string) =>
+  `https://docs.google.com/forms/d/e/${formId}/viewform`
+
 /** File upload questions cannot be prefilled at all — Google refuses, by design. */
 export const prefillable = (f: Field) => f.type !== 'file'
 
@@ -69,7 +73,7 @@ export function buildPrefillUrl(schema: FormSchema, answers: Answers): string {
     appendOne(p, f, a)
   }
 
-  return `https://docs.google.com/forms/d/e/${schema.formId}/viewform?${p}`
+  return `${viewformUrl(schema.formId)}?${p}`
 }
 
 /** The subset actually sent, for the history row — mirrors buildPrefillUrl's filtering. */
